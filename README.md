@@ -8,6 +8,13 @@ per phase, every load branching off the phase it is connected to, with live or a
 It needs the **[HA Phase Map](https://github.com/JanJoh/ha-phase-map)** integration, which
 knows which load is on which phase and computes the values.
 
+> [!IMPORTANT]
+> The diagram is only as good as your main-fuse readings. HA Phase Map needs a **reliable,
+> frequently updated current or power sensor for every phase at the main fuse** (for example a
+> P1/HAN reader with per-phase values or a CT meter on the incoming cables). A house total or
+> hourly supplier data is not enough. See
+> [Before you start](https://github.com/JanJoh/ha-phase-map#before-you-start-you-need-a-reliable-meter-on-every-phase).
+
 ## What it shows
 
 - The **main fuse** on the left, with its rating.
