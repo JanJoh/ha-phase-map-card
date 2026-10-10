@@ -1,0 +1,6 @@
+{
+  "name": "HA Phase Map Card",
+  "filename": "phase-bus-card.js",
+  "homeassistant": "2026.10.0",
+  "render_readme": true
+}
