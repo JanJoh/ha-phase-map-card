@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0 (unreleased)
+
+- A multi-phase load with only one meter (HA Phase Map 0.5) says how its power is counted
+  ("1 meter, all on L1" or "1 meter, split equally") instead of showing a per-phase split that
+  was never measured.
+
 ## 0.3.0 (unreleased)
 
 - **Sub-panels.** A meter with meters behind it (a garage's incoming meter) gets its own

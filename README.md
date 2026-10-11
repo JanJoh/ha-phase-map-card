@@ -26,6 +26,8 @@ knows which load is on which phase and computes the values.
   phase's colour, a dot where it joins its own bus, and a small arc where it crosses a bus it
   does not connect to. A charger that only uses one phase says so ("all on L1").
 - **Estimated loads** (no meter) are dashed and show their estimate.
+- A multi-phase load with **only one meter** says how its power is counted: "1 meter, all on
+  L1" or "1 meter, split equally".
 - **Meters behind other meters** (a garage's incoming meter with a CEE outlet and a heater
   behind it) get a **sub-panel** below the main diagram, fed from the garage's box: its own
   buses for the phases it measures, its loads on them, and **Other** per phase for what the

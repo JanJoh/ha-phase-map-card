@@ -9,7 +9,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.3.0";
+const CARD_VERSION = "0.4.0";
 
 const DEFAULT_COLORS = { L1: "#b8622a", L2: "#3a7fc1", L3: "#4f8f36" };
 const ESTIMATED_COLOR = "#8a5cc2";
@@ -158,6 +158,8 @@ class PhaseBusCard extends HTMLElement {
       live: sv ? "Live" : "Live",
       average_days: sv ? "Medel · {d} dagar" : "Average · {d} days",
       other: sv ? "Övrigt" : "Other",
+      split_equal: sv ? "1 mätare, jämnt fördelad" : "1 meter, split equally",
+      one_meter_on: sv ? "1 mätare, allt på {p}" : "1 meter, all on {p}",
       moved: sv ? "Verkar sitta på {p}, inte {c}" : "Seems to be on {p}, not {c}",
     };
     return T[key] ?? key;
@@ -314,7 +316,11 @@ class PhaseBusCard extends HTMLElement {
       splitName(ld.name).forEach((l) => txt.push(["nm t3" + (est ? " estc" : ""), l]));
       txt.push(["nm small", this._t("n_phase").replace("{n}", ld.phases.length)]);
       txt.push(["w" + (!est && !ld.total ? " zero" : ""), est ? `${this._t("est")} ${fmtW(ld.estimated_w, 1000)}` : fmtW(ld.total)]);
-      if (!est && ld.total) {
+      if (ld.meter) {
+        // one meter for several phases: say how it is counted, not a measured split
+        const draw = ld.meter.draw;
+        txt.push(["nm small", draw && draw !== "equal" ? this._t("one_meter_on").replace("{p}", draw) : this._t("split_equal")]);
+      } else if (!est && ld.total) {
         // where the power goes, e.g. "all on L1" for a car that charges on one phase
         const active = ld.phases.filter((p) => (ld.perPhase[p] || 0) >= 1);
         if (active.length === 1 && ld.phases.length > 1) txt.push(["nm small", this._t("all_on").replace("{p}", active[0])]);
