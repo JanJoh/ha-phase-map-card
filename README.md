@@ -27,8 +27,10 @@ knows which load is on which phase and computes the values.
   does not connect to. A charger that only uses one phase says so ("all on L1").
 - **Estimated loads** (no meter) are dashed and show their estimate.
 - **Meters behind other meters** (a garage's incoming meter with a CEE outlet and a heater
-  behind it) are listed under that meter's box, with dots for the phases they use, followed
-  by **Other**: what the meter measures beyond them.
+  behind it) get a **sub-panel** below the main diagram, fed from the garage's box: its own
+  buses for the phases it measures, its loads on them, and **Other** per phase for what the
+  garage meter measures beyond its own meters.
+- A load that HA Phase Map thinks has **moved to another phase** is marked "⚠ L3?".
 - **Detectors** from the integration appear as chips under the diagram ("Sauna running").
 
 Works in light and dark themes; on narrow screens the diagram scrolls sideways.

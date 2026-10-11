@@ -9,7 +9,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.3.0";
 
 const DEFAULT_COLORS = { L1: "#b8622a", L2: "#3a7fc1", L3: "#4f8f36" };
 const ESTIMATED_COLOR = "#8a5cc2";
@@ -19,8 +19,8 @@ const BUS_GAP = 180;           // vertical distance between buses
 const BUS_TOP = 64;
 const BW = 92, BH = 58, GAP = 6, X0 = 168;
 const TP_W = 112, TP_H = 104, TP_GAP = 4, TP_SP = 13, HOP_R = 5.5;
-// Nested meters: a box with meters behind it is wider and lists them underneath
-const WIDE_W = 168, SUB_ROW = 15, SUB_PAD = 8, SUB_GAP = 6, SUB_INDENT = 9;
+// Meters behind other meters get a panel of their own below, fed from their box
+const PANEL_GAP = 46, FEED_STEP = 7;
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -158,6 +158,7 @@ class PhaseBusCard extends HTMLElement {
       live: sv ? "Live" : "Live",
       average_days: sv ? "Medel · {d} dagar" : "Average · {d} days",
       other: sv ? "Övrigt" : "Other",
+      moved: sv ? "Verkar sitta på {p}, inte {c}" : "Seems to be on {p}, not {c}",
     };
     return T[key] ?? key;
   }
@@ -172,7 +173,7 @@ class PhaseBusCard extends HTMLElement {
     if (!live) return null;
     const avgMode = this._config.mode === "average";
     const avg = this._avg;
-    const phases = live.phases_order;
+    const order = live.phases_order;
     const v = live.voltage;
     const avgLoad = {};
     if (avgMode && avg) for (const l of avg.loads) avgLoad[l.id] = l;
@@ -180,11 +181,11 @@ class PhaseBusCard extends HTMLElement {
     const items = {};
     for (const load of live.loads) {
       const w = avgMode ? (avgLoad[load.id]?.w || {}) : load.w;
-      const restW = avgMode ? avgLoad[load.id]?.rest_w : load.rest_w;
       const perPhase = {};
       for (const p of load.phases) perPhase[p] = w[p] ?? null;
       const total = load.estimated ? null : sum(perPhase);
-      items[load.id] = { ...load, perPhase, total, restTotal: restW ? Math.max(sum(restW), 0) : null, children: [] };
+      const restW = (avgMode ? avgLoad[load.id]?.rest_w : load.rest_w) || {};
+      items[load.id] = { ...load, perPhase, total, restW, children: [] };
     }
     const roots = [];
     for (const load of live.loads) {
@@ -192,144 +193,123 @@ class PhaseBusCard extends HTMLElement {
       if (parent) parent.children.push(items[load.id]);
       else roots.push(items[load.id]);
     }
-    // The list under a box: every meter behind it (indented by depth), then what is left
-    const tree = (item, depth = 0) => {
-      const out = [];
-      const kids = [...item.children];
-      if (avgMode) kids.sort((a, b) => (b.total ?? -1) - (a.total ?? -1));
-      for (const k of kids) {
-        out.push({ ...k, depth });
-        if (k.children.length) out.push(...tree(k, depth + 1));
+    // One panel per distribution point: the main fuse, then every meter with meters behind it
+    const panel = (members, o) => {
+      const rows = Object.fromEntries(o.phases.map((p) => [p, []]));
+      const multi = [];
+      for (const it of members) {
+        if (it.phases.length > 1) multi.push(it);
+        else if (it.phases.length === 1 && rows[it.phases[0]]) rows[it.phases[0]].push(it);
       }
-      if (item.children.length) out.push({ name: this._t("other"), rest: true, depth, total: item.restTotal, phases: [] });
-      return out;
+      for (const p of o.phases) {
+        if (avgMode) rows[p].sort((a, b) => (b.total ?? -1) - (a.total ?? -1));
+        const rest = o.rest[p];
+        rows[p].push({ id: `rest_${o.key}_${p}`, name: o.restName, rest: true, phases: [p],
+          total: rest == null ? null : Math.max(rest, 0) });
+      }
+      return { ...o, rows, multi };
     };
-    const rows = Object.fromEntries(phases.map((p) => [p, []]));
-    const multi = [];
-    for (const item of roots) {
-      item.sub = tree(item);
-      if (item.phases.length > 1) multi.push(item);
-      else if (item.phases.length === 1 && rows[item.phases[0]]) rows[item.phases[0]].push(item);
-    }
-    for (const p of phases) {
-      if (avgMode) rows[p].sort((a, b) => (b.total ?? -1) - (a.total ?? -1));
+    const mainRest = {}, mainLabel = {}, warn = {};
+    for (const p of order) {
       const ph = live.phases[p];
-      const rest = avgMode ? avg?.phases?.[p]?.unmetered_w : (ph.unmetered_a == null ? null : ph.unmetered_a * v);
-      rows[p].push({ id: `rest_${p}`, name: this._t("unmetered"), rest: true, total: rest == null ? null : Math.max(rest, 0), sub: [] });
+      mainRest[p] = avgMode ? avg?.phases?.[p]?.unmetered_w : (ph.unmetered_a == null ? null : ph.unmetered_a * v);
+      if (avgMode) mainLabel[p] = `≈ ${fmtW(avg?.phases?.[p]?.total_w)} ${this._t("average")}`;
+      else mainLabel[p] = ph.current_a == null ? "–" : `${ph.current_a.toFixed(1)} A ${this._t("of")} ${live.fuse_a} A`;
+      warn[p] = !avgMode && ph.current_a != null && ph.current_a >= live.fuse_a - (live.margin_a ?? 1);
     }
-    return { live, phases, rows, multi, avgMode, avg };
-  }
-
-  // Height of the list under a box (0 when nothing is behind it)
-  static _subH(item) {
-    return item.sub && item.sub.length ? SUB_GAP + SUB_PAD + item.sub.length * SUB_ROW : 0;
-  }
-
-  _subList(o, item, x, w, yTop) {
-    if (!item.sub || !item.sub.length) return;
-    const phases = this._live.phases_order;
-    const h = item.sub.length * SUB_ROW + SUB_PAD;
-    const y0 = yTop + SUB_GAP;
-    o.push(`<line class="subln" x1="${x + 10}" y1="${yTop}" x2="${x + 10}" y2="${y0}"/>`);
-    o.push(`<rect class="subbox" x="${x}" y="${y0}" width="${w}" height="${h}" rx="5"/>`);
-    item.sub.forEach((row, k) => {
-      const y = y0 + SUB_PAD / 2 + 11 + k * SUB_ROW;
-      let tx = x + 7 + row.depth * SUB_INDENT;
-      const dots = row.rest ? [] : row.phases;
-      dots.forEach((p) => {
-        const i = phases.indexOf(p);
-        o.push(`<circle cx="${tx + 3}" cy="${y - 4}" r="3" style="fill:${row.estimated ? ESTIMATED_COLOR : this._color(p, i)}"/>`);
-        tx += 7;
-      });
-      if (dots.length) tx += 2;
-      const val = row.estimated ? `${this._t("est")} ${fmtW(row.estimated_w, 1000)}` : fmtW(row.total);
-      const room = Math.max(4, Math.floor((x + w - 7 - tx - (val.length * 6.3 + 6)) / 5.4));
-      o.push(`<text class="subnm${row.rest ? " rest" : ""}${row.estimated ? " estc" : ""}" x="${tx}" y="${y}"><title>${esc(String(row.name).replace("|", " "))}</title>${esc(ellipsize(String(row.name).replace("|", " "), room))}</text>`);
-      o.push(`<text class="subw${!row.estimated && !row.total ? " zero" : ""}" x="${x + w - 7}" y="${y}" text-anchor="end">${esc(val)}</text>`);
-    });
-  }
-
-  _svg(m) {
-    const { live, phases, rows, multi, avgMode, avg } = m;
-    const subH = PhaseBusCard._subH;
-    const rowW = (it) => (it.sub && it.sub.length ? WIDE_W : BW);
-    const tpW = (it) => (it.sub && it.sub.length ? WIDE_W : TP_W);
-    // x of every box per phase row, and how far each row's lists reach below its boxes
-    const xs = {}, drop = {};
-    let rowEnd = X0;
-    for (const p of phases) {
-      let x = X0;
-      xs[p] = rows[p].map((it) => { const at = x; x += rowW(it) + GAP; return at; });
-      rowEnd = Math.max(rowEnd, x - GAP);
-      drop[p] = Math.max(0, ...rows[p].map(subH));
-    }
-    const busY = {};
-    let y = BUS_TOP;
-    for (const p of phases) {
-      busY[p] = y;
-      y += Math.max(BUS_GAP, 34 + BH + drop[p] + 40);
-    }
-    const lastP = phases[phases.length - 1];
-    const lastBus = busY[lastP];
-    let cx0 = rowEnd + 30;
-    const centres = multi.map((it) => { const c = cx0 + tpW(it) / 2; cx0 += tpW(it) + TP_GAP; return c; });
-    const W = Math.round((multi.length ? cx0 - TP_GAP : rowEnd) + 16);
-    const boxTop3 = lastBus + 34 + BH + drop[lastP] + 34;
-    const multiDrop = Math.max(0, ...multi.map(subH));
-    const H = multi.length ? boxTop3 + TP_H + multiDrop + 12 : lastBus + 34 + BH + drop[lastP] + 20;
-    const busEnd = W - 18;
-    const o = [];
-    o.push(`<svg viewBox="0 0 ${W} ${H}" style="max-width:${W}px" role="img" aria-label="${esc(this._t("main_fuse"))}" xmlns="http://www.w3.org/2000/svg">`);
-    const fuseTop = BUS_TOP - 40, fuseH = lastBus - BUS_TOP + 80;
-    o.push(`<rect class="fuse" x="18" y="${fuseTop}" width="104" height="${fuseH}" rx="8"/>`);
-    o.push(`<text class="fuse-t" x="70" y="${BUS_TOP - 14}" text-anchor="middle">${esc(this._t("main_fuse"))}</text>`);
-    o.push(`<text class="fuse-s" x="70" y="${BUS_TOP + 2}" text-anchor="middle">${phases.length} × ${live.fuse_a} A</text>`);
-    phases.forEach((p, i) => {
-      const y = busY[p], c = this._color(p, i);
-      const ph = live.phases[p];
-      let label;
-      if (avgMode) {
-        const tw = avg?.phases?.[p]?.total_w;
-        label = `≈ ${fmtW(tw)} ${this._t("average")}`;
-      } else {
-        const cur = ph.current_a;
-        label = cur == null ? "–" : `${cur.toFixed(1)} A ${this._t("of")} ${live.fuse_a} A`;
+    const panels = [panel(roots, { key: "main", main: true, phases: order, rest: mainRest,
+      restName: this._t("unmetered"), title: [this._t("main_fuse")], subtitle: `${order.length} × ${live.fuse_a} A`,
+      label: mainLabel, warn })];
+    const addSubs = (pnl) => {
+      for (const it of [...Object.values(pnl.rows).flat(), ...pnl.multi]) {
+        if (!it.children || !it.children.length) continue;
+        const label = {};
+        for (const p of it.phases) label[p] = avgMode ? `≈ ${fmtW(it.perPhase[p])} ${this._t("average")}` : fmtW(it.perPhase[p]);
+        const sub = panel(it.children, { key: it.id, feeder: it.id, phases: order.filter((p) => it.phases.includes(p)),
+          rest: it.restW, restName: this._t("other"), title: splitName(it.name), subtitle: fmtW(it.total),
+          label, warn: {} });
+        panels.push(sub);
+        addSubs(sub);
       }
-      const warn = !avgMode && ph.current_a != null && ph.current_a >= live.fuse_a - (live.margin_a ?? 1);
-      o.push(`<line class="bus" x1="122" y1="${y}" x2="${busEnd}" y2="${y}" style="stroke:${c}"/>`);
+    };
+    addSubs(panels[0]);
+    return { live, phases: order, panels, avgMode, avg };
+  }
+
+  // Positions inside one panel, relative to its top-left corner
+  _layout(P) {
+    const ph = P.phases;
+    const busY = Object.fromEntries(ph.map((p, i) => [p, BUS_TOP + i * BUS_GAP]));
+    const xs = {};
+    let rowEnd = X0;
+    for (const p of ph) {
+      xs[p] = P.rows[p].map((_, j) => X0 + j * (BW + GAP));
+      rowEnd = Math.max(rowEnd, X0 + P.rows[p].length * (BW + GAP) - GAP);
+    }
+    const lastBus = busY[ph[ph.length - 1]];
+    const centres = P.multi.map((_, i) => rowEnd + 30 + TP_W / 2 + i * (TP_W + TP_GAP));
+    const w = Math.round((P.multi.length ? centres[centres.length - 1] + TP_W / 2 : rowEnd) + 16);
+    const boxTop3 = lastBus + 34 + BH + 34;
+    const h = P.multi.length ? boxTop3 + TP_H + 12 : lastBus + 34 + BH + 20;
+    return { busY, xs, centres, w, h, boxTop3, lastBus };
+  }
+
+  _movedMark(o, ld, xRight, yTop) {
+    const pc = ld.phase_check;
+    if (!pc || !pc.suspected) return;
+    const tip = this._t("moved").replace("{p}", pc.suspected).replace("{c}", pc.phase);
+    o.push(`<text class="moved" x="${xRight - 5}" y="${yTop + 13}" text-anchor="end"><title>${esc(tip)}</title>⚠ ${esc(pc.suspected)}?</text>`);
+  }
+
+  // Draw one panel at (ox, oy); returns where every box's bottom is, for feeder lines
+  _panel(o, P, L, ox, oy) {
+    const { busY, xs, centres, boxTop3, lastBus } = L;
+    const phases = this._live.phases_order;
+    const anchors = {};
+    const col = (p) => this._color(p, phases.indexOf(p));
+    o.push(`<g transform="translate(${ox},${oy})">`);
+    const fuseTop = BUS_TOP - 40, fuseH = lastBus - BUS_TOP + 80;
+    o.push(`<rect class="fuse${P.main ? "" : " feeder"}" x="18" y="${fuseTop}" width="104" height="${fuseH}" rx="8"/>`);
+    P.title.forEach((t, k) => o.push(`<text class="fuse-t${P.main ? "" : " small"}" x="70" y="${BUS_TOP - 18 + k * 14}" text-anchor="middle">${esc(t)}</text>`));
+    o.push(`<text class="fuse-s" x="70" y="${BUS_TOP - 2 + (P.title.length - 1) * 14}" text-anchor="middle">${esc(P.subtitle)}</text>`);
+    const busEnd = L.w - 18;
+    P.phases.forEach((p) => {
+      const y = busY[p], c = col(p);
+      o.push(`<line class="bus${P.main ? "" : " sub"}" x1="122" y1="${y}" x2="${busEnd}" y2="${y}" style="stroke:${c}"/>`);
       o.push(`<text class="ph" x="134" y="${y - 12}" style="fill:${c}">${esc(p)}</text>`);
-      o.push(`<text class="ph-avg${warn ? " warn" : ""}" x="162" y="${y - 12}">${esc(label)}</text>`);
-      rows[p].forEach((ld, j) => {
-        const bw = rowW(ld), x = xs[p][j], cx = x + bw / 2, top = y + 34;
+      o.push(`<text class="ph-avg${P.warn[p] ? " warn" : ""}" x="162" y="${y - 12}">${esc(P.label[p] ?? "")}</text>`);
+      P.rows[p].forEach((ld, j) => {
+        const x = xs[p][j], cx = x + BW / 2, top = y + 34;
         const est = ld.estimated;
         o.push(`<line class="tap" x1="${cx}" y1="${y}" x2="${cx}" y2="${top}" style="stroke:${est ? ESTIMATED_COLOR : c}"/>`);
         o.push(`<circle cx="${cx}" cy="${y}" r="4" style="fill:${c}"/>`);
-        o.push(`<rect class="box${ld.rest ? " rest" : ""}${est ? " est" : ""}" x="${x}" y="${top}" width="${bw}" height="${BH}" rx="6" style="stroke:${est ? ESTIMATED_COLOR : c}"/>`);
+        o.push(`<rect class="box${ld.rest ? " rest" : ""}${est ? " est" : ""}${ld.children?.length ? " feeds" : ""}" x="${x}" y="${top}" width="${BW}" height="${BH}" rx="6" style="stroke:${est ? ESTIMATED_COLOR : c}"/>`);
         const lines = splitName(ld.name);
         const ty = lines.length === 2 ? top + 17 : top + 24;
         lines.forEach((l, k) => o.push(`<text class="nm" x="${cx}" y="${ty + k * 13}" text-anchor="middle">${esc(l)}</text>`));
         const val = est ? `${this._t("est")} ${fmtW(ld.estimated_w, 1000)}` : fmtW(ld.total);
         o.push(`<text class="w${!est && !ld.total ? " zero" : ""}" x="${cx}" y="${top + BH - 8}" text-anchor="middle">${esc(val)}</text>`);
-        this._subList(o, ld, x, bw, top + BH);
+        this._movedMark(o, ld, x + BW, top);
+        anchors[ld.id] = { x: ox + cx, y: oy + top + BH };
       });
     });
-    multi.forEach((ld, n) => {
-      const xc = centres[n], tw = tpW(ld);
+    P.multi.forEach((ld, n) => {
+      const xc = centres[n];
       const est = ld.estimated;
       ld.phases.forEach((p) => {
-        const k = phases.indexOf(p);
+        const k = P.phases.indexOf(p);
         if (k < 0) return;
-        const x = xc + (k - (phases.length - 1) / 2) * TP_SP;
+        const x = xc + (k - (P.phases.length - 1) / 2) * TP_SP;
         let d = `M${x},${busY[p]}`;
-        for (const q of phases.slice(k + 1)) {
+        for (const q of P.phases.slice(k + 1)) {
           const yb = busY[q];
           d += ` V${yb - HOP_R} A${HOP_R},${HOP_R} 0 0 1 ${x},${yb + HOP_R}`;
         }
         d += ` V${boxTop3}`;
-        o.push(`<path class="cond${est ? " est" : ""}" d="${d}" style="stroke:${this._color(p, k)}"/>`);
-        o.push(`<circle cx="${x}" cy="${busY[p]}" r="5" style="fill:${this._color(p, k)}"/>`);
+        o.push(`<path class="cond${est ? " est" : ""}" d="${d}" style="stroke:${col(p)}"/>`);
+        o.push(`<circle cx="${x}" cy="${busY[p]}" r="5" style="fill:${col(p)}"/>`);
       });
-      o.push(`<rect class="box tp${est ? " est" : ""}" x="${xc - tw / 2}" y="${boxTop3}" width="${tw}" height="${TP_H}" rx="6"${est ? ` style="stroke:${ESTIMATED_COLOR}"` : ""}/>`);
+      o.push(`<rect class="box tp${est ? " est" : ""}${ld.children?.length ? " feeds" : ""}" x="${xc - TP_W / 2}" y="${boxTop3}" width="${TP_W}" height="${TP_H}" rx="6"${est ? ` style="stroke:${ESTIMATED_COLOR}"` : ""}/>`);
       const txt = [];
       splitName(ld.name).forEach((l) => txt.push(["nm t3" + (est ? " estc" : ""), l]));
       txt.push(["nm small", this._t("n_phase").replace("{n}", ld.phases.length)]);
@@ -338,11 +318,46 @@ class PhaseBusCard extends HTMLElement {
         // where the power goes, e.g. "all on L1" for a car that charges on one phase
         const active = ld.phases.filter((p) => (ld.perPhase[p] || 0) >= 1);
         if (active.length === 1 && ld.phases.length > 1) txt.push(["nm small", this._t("all_on").replace("{p}", active[0])]);
-        else if (active.length > 1) txt.push(["nm small", active.map((p) => `${p} ${Math.round(ld.perPhase[p])}`).join(" · ")]);
+        else if (active.length > 1 && !ld.children?.length) {
+          // the per-phase split; a box that feeds its own panel shows it there instead
+          const split = active.map((p) => `${p} ${Math.round(ld.perPhase[p])}`).join(" · ");
+          if (split.length * 5.6 <= TP_W - 10) txt.push(["nm small", split]);
+        }
       }
       txt.slice(0, 6).forEach(([cls, t], k) => o.push(`<text class="${cls}" x="${xc}" y="${boxTop3 + 19 + k * 16}" text-anchor="middle">${esc(t)}</text>`));
-      this._subList(o, ld, xc - tw / 2, tw, boxTop3 + TP_H);
+      anchors[ld.id] = { x: ox + xc, y: oy + boxTop3 + TP_H };
     });
+    o.push("</g>");
+    return anchors;
+  }
+
+  _svg(m) {
+    const layouts = m.panels.map((P) => this._layout(P));
+    const feeds = m.panels.filter((P) => P.feeder).length;
+    const margin = feeds ? 14 + feeds * FEED_STEP : 0;
+    const W = Math.max(...layouts.map((L) => L.w)) + margin;
+    const tops = [];
+    let y = 0;
+    layouts.forEach((L, i) => { tops.push(y); y += L.h + (i < layouts.length - 1 ? PANEL_GAP : 0); });
+    const H = y;
+    const o = [];
+    o.push(`<svg viewBox="0 0 ${W} ${H}" style="max-width:${W}px" role="img" aria-label="${esc(this._t("main_fuse"))}" xmlns="http://www.w3.org/2000/svg">`);
+    const anchors = {};
+    const body = [];
+    m.panels.forEach((P, i) => Object.assign(anchors, this._panel(body, P, layouts[i], 0, tops[i])));
+    // Feeder lines: from the box that measures a branch to that branch's panel, routed down the
+    // right-hand margin so they never run through another panel
+    let k = 0;
+    m.panels.forEach((P, i) => {
+      if (!P.feeder || !anchors[P.feeder]) return;
+      const a = anchors[P.feeder];
+      const xm = W - 10 - k++ * FEED_STEP;
+      const yIn = tops[i] + BUS_TOP - 40;
+      const yTurn = tops[i] - 16;
+      o.push(`<path class="feed" d="M${a.x},${a.y} V${a.y + 10} H${xm} V${yTurn} H70 V${yIn}"/>`);
+      o.push(`<circle class="feed-dot" cx="${a.x}" cy="${a.y}" r="3.5"/>`);
+    });
+    o.push(...body);
     o.push("</svg>");
     return o.join("");
   }
@@ -377,6 +392,13 @@ class PhaseBusCard extends HTMLElement {
         .fuse-t { font: 600 14px var(--ha-font-family-body, sans-serif); fill: var(--primary-text-color); }
         .fuse-s { font: 500 12px var(--code-font-family, monospace); fill: var(--secondary-text-color); }
         .bus { stroke-width: 6; stroke-linecap: round; }
+        .bus.sub { stroke-width: 4; }
+        .fuse.feeder { stroke-dasharray: none; stroke-width: 1.2; }
+        .fuse-t.small { font-size: 12.5px; }
+        .box.feeds { stroke-width: 2.5; }
+        .feed { fill: none; stroke: var(--secondary-text-color); stroke-width: 1.5; stroke-dasharray: 5 4; }
+        .feed-dot { fill: var(--secondary-text-color); }
+        .moved { font: 700 10.5px var(--ha-font-family-body, sans-serif); fill: var(--warning-color, #e0a000); }
         .ph { font: 600 15px var(--code-font-family, monospace); }
         .ph-avg { font: 500 12px var(--code-font-family, monospace); fill: var(--secondary-text-color); }
         .ph-avg.warn { fill: var(--error-color, #db4437); font-weight: 700; }
@@ -393,13 +415,6 @@ class PhaseBusCard extends HTMLElement {
         .nm.small { font-size: 10.5px; fill: var(--secondary-text-color); }
         .w { font: 600 13px var(--code-font-family, monospace); fill: var(--primary-text-color); }
         .w.zero { fill: var(--secondary-text-color); }
-        .subbox { fill: var(--secondary-background-color, rgba(127,127,127,.08)); stroke: var(--divider-color, rgba(127,127,127,.4)); stroke-width: 1; }
-        .subln { stroke: var(--divider-color, rgba(127,127,127,.5)); stroke-width: 1.5; }
-        .subnm { font: 500 10.5px var(--ha-font-family-body, sans-serif); fill: var(--primary-text-color); }
-        .subnm.rest { font-style: italic; fill: var(--secondary-text-color); }
-        .subnm.estc { fill: ${ESTIMATED_COLOR}; }
-        .subw { font: 600 10.5px var(--code-font-family, monospace); fill: var(--primary-text-color); }
-        .subw.zero { fill: var(--secondary-text-color); }
         .chips { display:flex; flex-wrap:wrap; gap:6px; padding: 8px 4px 0; }
         .chip { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--secondary-background-color, rgba(127,127,127,.12)); color: var(--secondary-text-color); }
         .chip.on { background: ${ESTIMATED_COLOR}; color: #fff; }
