@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 (unreleased)
+
+- **Unverified phases are dashed.** A conductor to a phase the load has never been seen
+  drawing from (HA Phase Map 0.6) is drawn dashed with an open dot, with a tooltip. A 3-phase
+  charger used by a 1-phase car shows L1 solid and L2, L3 dashed.
+
 ## 0.4.0 (unreleased)
 
 - A multi-phase load with only one meter (HA Phase Map 0.5) says how its power is counted

@@ -9,7 +9,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.4.0";
+const CARD_VERSION = "0.5.0";
 
 const DEFAULT_COLORS = { L1: "#b8622a", L2: "#3a7fc1", L3: "#4f8f36" };
 const ESTIMATED_COLOR = "#8a5cc2";
@@ -160,6 +160,7 @@ class PhaseBusCard extends HTMLElement {
       other: sv ? "Övrigt" : "Other",
       split_equal: sv ? "1 mätare, jämnt fördelad" : "1 meter, split equally",
       one_meter_on: sv ? "1 mätare, allt på {p}" : "1 meter, all on {p}",
+      unverified: sv ? "{p}: ingen ström sedd här ännu (ej verifierad)" : "{p}: no current seen here yet (unverified)",
       moved: sv ? "Verkar sitta på {p}, inte {c}" : "Seems to be on {p}, not {c}",
     };
     return T[key] ?? key;
@@ -308,8 +309,13 @@ class PhaseBusCard extends HTMLElement {
           d += ` V${yb - HOP_R} A${HOP_R},${HOP_R} 0 0 1 ${x},${yb + HOP_R}`;
         }
         d += ` V${boxTop3}`;
-        o.push(`<path class="cond${est ? " est" : ""}" d="${d}" style="stroke:${col(p)}"/>`);
-        o.push(`<circle cx="${x}" cy="${busY[p]}" r="5" style="fill:${col(p)}"/>`);
+        // A phase the load has never been seen drawing from is drawn dashed, with an open dot
+        const unv = !est && Array.isArray(ld.verified) && !ld.verified.includes(p);
+        const tip = unv ? `<title>${esc(this._t("unverified").replace("{p}", p))}</title>` : "";
+        o.push(`<path class="cond${est ? " est" : ""}${unv ? " unv" : ""}" d="${d}" style="stroke:${col(p)}">${tip}</path>`);
+        o.push(unv
+          ? `<circle class="unv-dot" cx="${x}" cy="${busY[p]}" r="4" style="stroke:${col(p)}">${tip}</circle>`
+          : `<circle cx="${x}" cy="${busY[p]}" r="5" style="fill:${col(p)}"/>`);
       });
       o.push(`<rect class="box tp${est ? " est" : ""}${ld.children?.length ? " feeds" : ""}" x="${xc - TP_W / 2}" y="${boxTop3}" width="${TP_W}" height="${TP_H}" rx="6"${est ? ` style="stroke:${ESTIMATED_COLOR}"` : ""}/>`);
       const txt = [];
@@ -411,6 +417,8 @@ class PhaseBusCard extends HTMLElement {
         .tap { stroke-width: 2; }
         .cond { fill: none; stroke-width: 2.5; stroke-linecap: round; }
         .cond.est { stroke-dasharray: 6 4; }
+        .cond.unv { stroke-dasharray: 3 4; stroke-width: 2; }
+        .unv-dot { fill: var(--card-background-color, var(--ha-card-background, #fff)); stroke-width: 2; }
         .box { fill: var(--card-background-color, var(--ha-card-background, #fff)); stroke-width: 1.5; }
         .box.rest { fill: var(--secondary-background-color, transparent); stroke-dasharray: 4 3; }
         .box.est { stroke-dasharray: 5 4; }
