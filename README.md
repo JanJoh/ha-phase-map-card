@@ -44,7 +44,10 @@ Works in light and dark themes; on narrow screens the diagram scrolls sideways.
 
 ## Installation
 
-The repository is private while it is being tested, so install it manually for now:
+**You do not need to install the card separately: HA Phase Map 0.7 and later includes it and
+loads it automatically.** This repository is where the card is developed.
+
+For an older HA Phase Map, or to run a newer card than the one included, install it manually:
 
 1. Copy `dist/phase-bus-card.js` to `config/www/phase-bus-card.js`.
 2. **Settings → Dashboards → ⋮ → Resources → Add resource**: URL
@@ -75,10 +78,16 @@ colors:             # optional: phase colours
 | `mode` | `live` | `live` shows current values; `average` shows average power from long-term statistics |
 | `days` | `10` | Averaging window for `mode: average` (1–90) |
 | `entry_id` | first entry | The HA Phase Map config entry to draw |
-| `colors` | brown / blue / green | Colour per phase name |
+| `colors` | brown / blue / green | Colour per phase name (also in the visual editor, under *Phase colours*) |
 
 Load names wrap over two lines automatically; put a `|` in a load's name in HA Phase Map to
 choose the break yourself (for example `Heat pump|compressor`).
+
+## Development
+
+The card is one file without a build step. Tests run with Node 22: `node --test test/*.test.js`.
+After a change, copy it into the integration with `scripts/sync_card.sh` in the ha-phase-map
+repository.
 
 ## Known issues
 

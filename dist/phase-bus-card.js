@@ -9,7 +9,7 @@
  * MIT License
  */
 
-const CARD_VERSION = "0.5.0";
+const CARD_VERSION = "0.6.0";
 
 const DEFAULT_COLORS = { L1: "#b8622a", L2: "#3a7fc1", L3: "#4f8f36" };
 const ESTIMATED_COLOR = "#8a5cc2";
@@ -459,35 +459,76 @@ class PhaseBusCardEditor extends HTMLElement {
       this._form = document.createElement("ha-form");
       this._form.computeLabel = (s) => ({
         entry_id: "Main fuse (HA Phase Map entry)", mode: "Values", days: "Average over (days)", title: "Title",
+        colors: "Phase colours",
       }[s.name] || s.name);
       this._form.addEventListener("value-changed", (ev) => {
-        this._config = { ...this._config, ...ev.detail.value };
+        this._config = PhaseBusCardEditor.fromForm(this._config, ev.detail.value);
         this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
       });
       this.appendChild(this._form);
     }
     this._form.hass = this._hass;
-    this._form.data = this._config;
+    this._form.data = PhaseBusCardEditor.toForm(this._config);
     this._form.schema = [
       { name: "title", selector: { text: {} } },
       { name: "entry_id", selector: { config_entry: { integration: "phase_map" } } },
       { name: "mode", selector: { select: { mode: "dropdown", options: [
         { value: "live", label: "Live" }, { value: "average", label: "Average" }] } } },
       { name: "days", selector: { number: { min: 1, max: 90, mode: "box" } } },
+      { name: "colors", type: "expandable", title: "Phase colours", schema:
+        ["L1", "L2", "L3"].map((p) => ({ name: p, selector: { color_rgb: {} } })) },
     ];
+  }
+
+  // The card stores colours as "#rrggbb"; the colour picker works in [r, g, b]
+  static hexToRgb(hex) {
+    const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex || "").trim());
+    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : undefined;
+  }
+
+  static rgbToHex(rgb) {
+    if (!Array.isArray(rgb) || rgb.length !== 3) return undefined;
+    return "#" + rgb.map((v) => Math.max(0, Math.min(255, Math.round(Number(v) || 0))).toString(16).padStart(2, "0")).join("");
+  }
+
+  static toForm(config) {
+    const colors = {};
+    for (const p of ["L1", "L2", "L3"]) colors[p] = PhaseBusCardEditor.hexToRgb((config.colors || {})[p] || DEFAULT_COLORS[p]);
+    return { ...config, colors };
+  }
+
+  static fromForm(config, value) {
+    const out = { ...config, ...value };
+    const colors = {};
+    for (const [p, rgb] of Object.entries(value.colors || {})) {
+      const hex = PhaseBusCardEditor.rgbToHex(rgb);
+      // only keep colours that differ from the defaults, so the YAML stays short
+      if (hex && hex.toLowerCase() !== (DEFAULT_COLORS[p] || "").toLowerCase()) colors[p] = hex;
+    }
+    if (Object.keys(colors).length) out.colors = colors;
+    else delete out.colors;
+    return out;
   }
 }
 
-customElements.define("phase-bus-card", PhaseBusCard);
-customElements.define("phase-bus-card-editor", PhaseBusCardEditor);
+// The integration loads this card itself; a dashboard resource for the same card may load it a
+// second time. The first copy wins instead of throwing "already been defined".
+if (customElements.get("phase-bus-card")) {
+  console.info(`PHASE-BUS-CARD ${CARD_VERSION}: already loaded, keeping the first copy`);
+} else {
+  customElements.define("phase-bus-card", PhaseBusCard);
+  customElements.define("phase-bus-card-editor", PhaseBusCardEditor);
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: "phase-bus-card",
+    name: "Phase Bus Card",
+    description: "Main fuse, one bus per phase, and every load on the phase it is connected to (HA Phase Map).",
+    preview: false,
+    documentationURL: "https://github.com/JanJoh/ha-phase-map-card",
+  });
+  console.info(`%c PHASE-BUS-CARD %c ${CARD_VERSION} `, "color:#fff;background:#3a7fc1;font-weight:700", "color:#3a7fc1");
+}
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "phase-bus-card",
-  name: "Phase Bus Card",
-  description: "Main fuse, one bus per phase, and every load on the phase it is connected to (HA Phase Map).",
-  preview: false,
-  documentationURL: "https://github.com/JanJoh/ha-phase-map-card",
-});
-
-console.info(`%c PHASE-BUS-CARD %c ${CARD_VERSION} `, "color:#fff;background:#3a7fc1;font-weight:700", "color:#3a7fc1");
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { PhaseBusCard, PhaseBusCardEditor, splitName, fmtW };   // for the tests
+}

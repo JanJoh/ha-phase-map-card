@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.6.0 (unreleased)
+
+- Bundled with HA Phase Map 0.7, which loads it by itself. Loading the card a second time (also
+  from a dashboard resource) keeps the first copy instead of failing with "already defined".
+- **Phase colours in the visual editor** (a colour picker per phase, under *Phase colours*).
+  Only colours that differ from the defaults are written to the YAML.
+- Automated tests (`node --test test/*.test.js`) for the layout model and the drawing: sub-panels,
+  dashed unverified phases, one-meter loads, moved loads, average mode, Swedish, escaping, the
+  colour conversion and double loading. Run in CI.
+- Issue templates.
+
 ## 0.5.0 (unreleased)
 
 - **Unverified phases are dashed.** A conductor to a phase the load has never been seen
