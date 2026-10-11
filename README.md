@@ -75,6 +75,12 @@ colors:             # optional: phase colours
 Load names wrap over two lines automatically; put a `|` in a load's name in HA Phase Map to
 choose the break yourself (for example `Heat pump|compressor`).
 
+## Known issues
+
+See [the card's issue tracker](https://github.com/JanJoh/ha-phase-map-card/issues) for known
+issues and to report a problem. For anything about the values themselves (phases, unmetered
+current, detectors), use the [integration's issue tracker](https://github.com/JanJoh/ha-phase-map/issues).
+
 ## License
 
 [MIT](LICENSE)
