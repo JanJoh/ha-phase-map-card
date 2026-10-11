@@ -26,6 +26,9 @@ knows which load is on which phase and computes the values.
   phase's colour, a dot where it joins its own bus, and a small arc where it crosses a bus it
   does not connect to. A charger that only uses one phase says so ("all on L1").
 - **Estimated loads** (no meter) are dashed and show their estimate.
+- **Meters behind other meters** (a garage's incoming meter with a CEE outlet and a heater
+  behind it) are listed under that meter's box, with dots for the phases they use, followed
+  by **Other**: what the meter measures beyond them.
 - **Detectors** from the integration appear as chips under the diagram ("Sauna running").
 
 Works in light and dark themes; on narrow screens the diagram scrolls sideways.
