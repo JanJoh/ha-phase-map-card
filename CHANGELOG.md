@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.0 (unreleased)
+## 0.6.0 (2026-10-12)
 
 - Bundled with HA Phase Map 0.7, which loads it by itself. Loading the card a second time (also
   from a dashboard resource) keeps the first copy instead of failing with "already defined".
