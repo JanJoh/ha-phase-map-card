@@ -111,3 +111,23 @@ test("loading the card twice does not throw", () => {
   delete require.cache[require.resolve("../dist/phase-bus-card.js")];
   assert.doesNotThrow(() => require("../dist/phase-bus-card.js"));
 });
+
+test("multi-phase loads show each phase's reading at its junction, in the phase colour", () => {
+  const c = card();
+  const svg = c._svg(c._model());
+  // EV (L1) and the garage (L1, L2, L3); not the one-meter charger, the idle CEE outlet or the sauna
+  assert.equal(count(svg, 'class="jw"'), 4);
+  assert.match(svg, new RegExp(`class="jw"[^>]*style="fill:${c._color("L2", 1)}">${fmtW(1540)}<`));
+});
+
+test("the per-phase split in a box is coloured by phase", () => {
+  const c = card();
+  c._live.loads.push({ id: "hp", name: "Heat pump", phases: ["L1", "L2", "L3"], parent: null, estimated: false,
+    w: { L1: 34, L2: 0, L3: 480 }, verified: ["L1", "L3"] });
+  const svg = c._svg(c._model());
+  const line = /<text class="nm small split"[^>]*>(.*?)<\/text>/.exec(svg);
+  assert.ok(line, "split line drawn");
+  assert.match(line[1], new RegExp(`<tspan style="fill:${c._color("L1", 0)}">L1 34</tspan>`));
+  assert.match(line[1], new RegExp(`<tspan style="fill:${c._color("L3", 2)}">L3 480</tspan>`));
+  assert.match(line[1], /class="sep"> · </);
+});

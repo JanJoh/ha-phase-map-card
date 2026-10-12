@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0 (2026-10-12)
+
+- **Per-phase readings at the junctions.** A multi-phase load with a meter per phase shows what
+  each phase draws next to the dot where its conductor joins the bus, in the phase colour.
+  One-meter loads (a split by rule, not a reading) and idle phases show nothing there.
+- **The per-phase split in a box is coloured by phase** ("L1 34 · L3 480").
+
 ## 0.6.0 (2026-10-12)
 
 - Bundled with HA Phase Map 0.7, which loads it by itself. Loading the card a second time (also
