@@ -36,7 +36,10 @@ knows which load is on which phase and computes the values.
   buses for the phases it measures, its loads on them, and **Other** per phase for what the
   garage meter measures beyond its own meters.
 - A load that HA Phase Map thinks has **moved to another phase** is marked "⚠ L3?".
-- **Detectors** from the integration appear as chips under the diagram ("Sauna running").
+- **Detectors** from the integration (0.9 or later) are drawn as loads on the phases they
+  watch: a dashed box marked *detected* with the estimated power, the reading per phase at the
+  junctions, and whether the load is running. What they see is taken out of *Unmetered*. In
+  average mode, and with older integrations, they appear as chips under the diagram.
 
 Works in light and dark themes; on narrow screens the diagram scrolls sideways.
 

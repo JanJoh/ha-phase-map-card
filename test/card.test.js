@@ -131,3 +131,41 @@ test("the per-phase split in a box is coloured by phase", () => {
   assert.match(line[1], new RegExp(`<tspan style="fill:${c._color("L3", 2)}">L3 480</tspan>`));
   assert.match(line[1], /class="sep"> · </);
 });
+
+test("a detector is drawn as a load, and what it sees is taken out of Unmetered", () => {
+  const c = card();
+  c._live.phases.L1.unmetered_a = 9.0;                  // 2070 W unmetered, 1840 W of it the sauna
+  c._live.detectors = [{ id: "det", name: "Bastun", phases: ["L1", "L2", "L3"], on: true,
+    w: { L1: 1840, L2: 1840, L3: 1840 }, power_w: 5520 }];
+  const m = c._model();
+  const det = m.panels[0].multi.find((r) => r.id === "det_det");
+  assert.ok(det && det.detected);
+  assert.equal(m.panels[0].multi.at(-1), det);          // after the metered loads
+  const rest = m.panels[0].rows.L1.find((r) => r.rest);
+  assert.equal(Math.round(rest.total), 230);
+  const svg = c._svg(m);
+  assert.match(svg, />5520 W</);
+  assert.match(svg, /detected · running/);
+  assert.match(svg, /estimated by the detector/);
+  assert.equal(count(svg, "cond est"), 6);              // the estimated sauna and the detector
+  assert.match(svg, /class="jw"[^>]*>1840 W</);
+});
+
+test("a detector that is off shows 0 W; in average mode it stays a chip", () => {
+  const c = card();
+  c._live.detectors = [{ id: "det", name: "Bastun", phases: ["L1", "L2", "L3"], on: false,
+    w: { L1: 0, L2: 0, L3: 0 }, power_w: 0 }];
+  const svg = c._svg(c._model());
+  assert.match(svg, /detected · not running/);
+  assert.match(svg, /class="w zero"[^>]*>0 W</);
+  const a = card({ mode: "average" });
+  a._live.detectors = c._live.detectors;
+  a._avg = fixture.average();
+  const m = a._model();
+  assert.ok(!m.panels[0].multi.some((r) => r.detected));
+});
+
+test("payloads from before 0.9 (detectors without phases) still draw", () => {
+  const svg = card()._svg(card()._model());
+  assert.doesNotMatch(svg, /detected/);
+});

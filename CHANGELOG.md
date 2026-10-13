@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.0 (2026-10-13)
+
+- **Detectors are drawn as loads.** With HA Phase Map 0.9 or later, a detector (a sauna with
+  no meter) gets a dashed box on the phases it watches, marked *detected*, with its estimated
+  power, the reading per phase at the junctions, and whether it is running. Its current is
+  taken out of *Unmetered*, so the diagram still adds up. In average mode, and with older
+  integrations, detectors stay chips under the diagram.
+
 ## 0.7.0 (2026-10-12)
 
 - **Per-phase readings at the junctions.** A multi-phase load with a meter per phase shows what
