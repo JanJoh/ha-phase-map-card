@@ -1,15 +1,15 @@
-# HA Phase Map Card
+# Phase Map Card
 
 A Home Assistant dashboard card that draws your main fuse as a single-line diagram: one bus
 per phase, every load branching off the phase it is connected to, with live or average power.
 
 ![Phase bus card, light theme](images/card-light.png)
 
-It needs the **[HA Phase Map](https://github.com/JanJoh/ha-phase-map)** integration, which
+It needs the **[Phase Map](https://github.com/JanJoh/ha-phase-map)** integration, which
 knows which load is on which phase and computes the values.
 
 > [!IMPORTANT]
-> The diagram is only as good as your main-fuse readings. HA Phase Map needs a **reliable,
+> The diagram is only as good as your main-fuse readings. Phase Map needs a **reliable,
 > frequently updated current or power sensor for every phase at the main fuse** (for example a
 > P1/HAN reader with per-phase values or a CT meter on the incoming cables). A house total or
 > hourly supplier data is not enough. See
@@ -35,7 +35,7 @@ knows which load is on which phase and computes the values.
   behind it) get a **sub-panel** below the main diagram, fed from the garage's box: its own
   buses for the phases it measures, its loads on them, and **Other** per phase for what the
   garage meter measures beyond its own meters.
-- A load that HA Phase Map thinks has **moved to another phase** is marked "⚠ L3?".
+- A load that Phase Map thinks has **moved to another phase** is marked "⚠ L3?".
 - **Detectors** from the integration (0.9 or later) are drawn as loads on the phases they
   watch: a dashed box marked *detected* with the estimated power, the reading per phase at the
   junctions, and whether the load is running. What they see is taken out of *Unmetered*. In
@@ -47,10 +47,10 @@ Works in light and dark themes; on narrow screens the diagram scrolls sideways.
 
 ## Installation
 
-**You do not need to install the card separately: HA Phase Map 0.7 and later includes it and
+**You do not need to install the card separately: Phase Map 0.7 and later includes it and
 loads it automatically.** This repository is where the card is developed.
 
-For an older HA Phase Map, or to run a newer card than the one included, install it manually:
+For an older Phase Map, or to run a newer card than the one included, install it manually:
 
 1. Copy `dist/phase-bus-card.js` to `config/www/phase-bus-card.js`.
 2. **Settings → Dashboards → ⋮ → Resources → Add resource**: URL
@@ -80,10 +80,10 @@ colors:             # optional: phase colours
 | `title` | none | Card heading |
 | `mode` | `live` | `live` shows current values; `average` shows average power from long-term statistics |
 | `days` | `10` | Averaging window for `mode: average` (1–90) |
-| `entry_id` | first entry | The HA Phase Map config entry to draw |
+| `entry_id` | first entry | The Phase Map config entry to draw |
 | `colors` | brown / blue / green | Colour per phase name (also in the visual editor, under *Phase colours*) |
 
-Load names wrap over two lines automatically; put a `|` in a load's name in HA Phase Map to
+Load names wrap over two lines automatically; put a `|` in a load's name in Phase Map to
 choose the break yourself (for example `Heat pump|compressor`).
 
 ## Development

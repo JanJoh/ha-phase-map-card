@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1 (2026-10-13)
+
+- The integration is now called **Phase Map** (was HA Phase Map); the card's texts and its HACS
+  name ("Phase Map Card") follow.
+
 ## 0.8.0 (2026-10-13)
 
 - **Detectors are drawn as loads.** With HA Phase Map 0.9 or later, a detector (a sauna with

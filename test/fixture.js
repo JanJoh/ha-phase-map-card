@@ -1,4 +1,4 @@
-// A live payload like HA Phase Map 0.6 sends: a garage with meters behind it, a 3-phase charger
+// A live payload like Phase Map 0.6 sends: a garage with meters behind it, a 3-phase charger
 // with a 1-phase car, a charger with one total meter, a moved kettle and an estimated sauna.
 const phases = (o) => o;
 module.exports.live = () => ({
