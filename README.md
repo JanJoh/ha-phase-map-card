@@ -40,6 +40,10 @@ knows which load is on which phase and computes the values.
   watch: a dashed box marked *detected* with the estimated power, the reading per phase at the
   junctions, and whether the load is running. What they see is taken out of *Unmetered*. In
   average mode, and with older integrations, they appear as chips under the diagram.
+- **Click a box** to open its sensor, as anywhere else in Home Assistant: a load opens its meter
+  (a load with a meter per phase opens the first phase's), *Unmetered* opens the phase's
+  unmetered-current sensor, and a detector its power sensor. Estimated loads and *Other* have
+  no sensor and are not clickable. Needs Phase Map 0.10 or later.
 
 Works in light and dark themes; on narrow screens the diagram scrolls sideways.
 

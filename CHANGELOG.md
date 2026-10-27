@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 (2026-10-27)
+
+- **Boxes are clickable.** Clicking a load opens its meter's more-info dialog (the first phase's
+  meter for a load with one meter per phase), *Unmetered* opens that phase's unmetered-current
+  sensor and a detector its power sensor. The boxes also work from the keyboard (Tab, Enter)
+  and are highlighted on hover. Needs Phase Map 0.10 or later, which sends the entity ids;
+  with older versions nothing is clickable.
+
 ## 0.8.1 (2026-10-13)
 
 - The integration is now called **Phase Map** (was HA Phase Map); the card's texts and its HACS

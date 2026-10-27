@@ -169,3 +169,34 @@ test("payloads from before 0.9 (detectors without phases) still draw", () => {
   const svg = card()._svg(card()._model());
   assert.doesNotMatch(svg, /detected/);
 });
+
+test("boxes with an entity open its more-info dialog", () => {
+  const c = card();
+  const svg = c._svg(c._model());
+  assert.match(svg, /<g class="hit" data-entity="sensor\.dishwasher" tabindex="0" role="button" aria-label="Dish&lt;washer&gt;">/);
+  assert.match(svg, /data-entity="sensor\.ev_l1"/);                                  // multi-phase box
+  assert.match(svg, /data-entity="sensor\.main_fuse_l1_unmetered_current"/);         // Unmetered on L1
+  assert.equal(count(svg, 'class="hit"'), 3);   // the estimated sauna, Other and loads without ids stay plain
+  assert.equal(count(svg, "<g "), count(svg, "</g>"));
+
+  c.connectedCallback();
+  const click = c.shadowRoot.listeners.click;
+  let prevented = false;
+  click({ composedPath: () => [{}, { dataset: { entity: "sensor.dishwasher" } }], preventDefault: () => { prevented = true; } });
+  assert.equal(c.dispatched.length, 1);
+  assert.equal(c.dispatched[0].type, "hass-more-info");
+  assert.deepEqual(c.dispatched[0].detail, { entityId: "sensor.dishwasher" });
+  assert.ok(prevented && c.dispatched[0].bubbles && c.dispatched[0].composed);
+  click({ composedPath: () => [{ dataset: {} }], preventDefault: () => {} });       // the bus, not a box
+  assert.equal(c.dispatched.length, 1);
+  c.shadowRoot.listeners.keydown({ key: "Enter", composedPath: () => [{ dataset: { entity: "sensor.ev_l1" } }], preventDefault: () => {} });
+  c.shadowRoot.listeners.keydown({ key: "a", composedPath: () => [{ dataset: { entity: "sensor.ev_l1" } }], preventDefault: () => {} });
+  assert.deepEqual(c.dispatched.map((e) => e.detail.entityId), ["sensor.dishwasher", "sensor.ev_l1"]);
+});
+
+test("a detector box opens its power sensor", () => {
+  const c = card();
+  c._live.detectors = [{ id: "s1", name: "Sauna running", phases: ["L1", "L2", "L3"], on: true,
+    w: { L1: 2000, L2: 2000, L3: 2000 }, power_w: 6000, entity_id: "sensor.sauna_running_power" }];
+  assert.match(c._svg(c._model()), /data-entity="sensor\.sauna_running_power"/);
+});

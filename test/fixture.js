@@ -1,19 +1,20 @@
-// A live payload like Phase Map 0.6 sends: a garage with meters behind it, a 3-phase charger
+// A live payload like Phase Map 0.6 sends (plus a few 0.10 entity ids): a garage with meters behind it, a 3-phase charger
 // with a 1-phase car, a charger with one total meter, a moved kettle and an estimated sauna.
 const phases = (o) => o;
 module.exports.live = () => ({
   entry_id: "e1", title: "Main fuse", phases_order: ["L1", "L2", "L3"], voltage: 230, fuse_a: 20, margin_a: 1,
   phases: phases({
-    L1: { current_a: 19.5, unmetered_a: 0.9, headroom_a: 0.5 },
+    L1: { current_a: 19.5, unmetered_a: 0.9, headroom_a: 0.5, unmetered_entity_id: "sensor.main_fuse_l1_unmetered_current" },
     L2: { current_a: 11.7, unmetered_a: 0.6, headroom_a: 8.3 },
     L3: { current_a: 9.0, unmetered_a: -0.4, headroom_a: 11 },
   }),
   loads: [
-    { id: "dish", name: "Dish<washer>", phases: ["L2"], parent: null, estimated: false, w: { L2: 2070 } },
+    { id: "dish", name: "Dish<washer>", phases: ["L2"], parent: null, estimated: false, w: { L2: 2070 },
+      entity_id: "sensor.dishwasher" },
     { id: "kettle", name: "Kettle", phases: ["L2"], parent: null, estimated: false, w: { L2: 0 },
       phase_check: { phase: "L2", agree: 0, disagree: 5, events: 5, suspected: "L3" } },
     { id: "ev", name: "EV charger", phases: ["L1", "L2", "L3"], parent: null, estimated: false,
-      w: { L1: 2024, L2: 0, L3: 0 }, verified: ["L1"] },
+      w: { L1: 2024, L2: 0, L3: 0 }, verified: ["L1"], entity_id: "sensor.ev_l1" },
     { id: "chg", name: "Charger|(total meter)", phases: ["L1", "L2", "L3"], parent: null, estimated: false,
       w: { L1: 1610, L2: 0, L3: 0 }, verified: ["L1", "L2", "L3"], meter: { draw: "L1" } },
     { id: "sauna", name: "Sauna", phases: ["L1", "L2", "L3"], parent: null, estimated: true, estimated_w: 8000,

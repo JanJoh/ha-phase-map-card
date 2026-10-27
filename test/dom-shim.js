@@ -1,10 +1,14 @@
 // Just enough of a browser for the card to load and render under Node's test runner.
 class FakeElement {
   constructor() { this.children = []; this.isConnected = false; this.shadowRoot = null; }
-  attachShadow() { this.shadowRoot = { innerHTML: "" }; return this.shadowRoot; }
+  attachShadow() {
+    const listeners = {};
+    this.shadowRoot = { innerHTML: "", listeners, addEventListener: (t, f) => { listeners[t] = f; } };
+    return this.shadowRoot;
+  }
   appendChild(child) { this.children.push(child); return child; }
   addEventListener() {}
-  dispatchEvent() { return true; }
+  dispatchEvent(ev) { (this.dispatched = this.dispatched || []).push(ev); return true; }
 }
 const registry = new Map();
 globalThis.HTMLElement = FakeElement;
